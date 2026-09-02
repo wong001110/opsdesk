@@ -37,14 +37,16 @@ Initial target stack:
 
 The exact implementation may evolve if repository evidence justifies it. Avoid introducing architecture or infrastructure only to make the project appear more complex.
 
-## Project context
+## Start here
 
-Coding agents should start with the project-local context before broad repository exploration:
+For coding agents and contributors:
 
-- [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md)
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- [`docs/DECISIONS.md`](docs/DECISIONS.md)
-- [`docs/SECURITY.md`](docs/SECURITY.md)
+- [`AGENTS.md`](AGENTS.md) — agent working contract
+- [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) — current project truth / progress
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — current architecture and module boundaries
+- [`docs/DECISIONS.md`](docs/DECISIONS.md) — accepted material decisions
+- [`docs/SECURITY.md`](docs/SECURITY.md) — current assets, trust boundaries, and invariants
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — incremental product and validation slices
 
 These files are maintained inside OpsDesk. Agent Lore does not store or synchronize them.
 
@@ -54,4 +56,4 @@ Use the smallest execution topology and verification depth that is sufficient fo
 
 ## Status
 
-Planning / repository bootstrap.
+Planning / repository bootstrap. The next checkpoint is the first runnable Spring Boot + PostgreSQL vertical slice covering authentication, workspace membership, and basic tickets.
