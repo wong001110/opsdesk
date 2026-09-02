@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: opsdesk
+  datasource:
+    url: ${OPSDESK_DATABASE_URL:jdbc:postgresql://localhost:5432/opsdesk}
+    username: ${OPSDESK_DATABASE_USERNAME:opsdesk}
+    password: ${OPSDESK_DATABASE_PASSWORD}
+  flyway:
+    enabled: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+opsdesk:
+  bootstrap:
+    enabled: ${OPSDESK_BOOTSTRAP_ENABLED:false}
+    email: ${OPSDESK_BOOTSTRAP_EMAIL:}
+    display-name: ${OPSDESK_BOOTSTRAP_DISPLAY_NAME:}
+    password: ${OPSDESK_BOOTSTRAP_PASSWORD:}
+  ai:
+    live-enabled: ${OPSDESK_AI_LIVE_ENABLED:false}
+    deepseek:
+      base-url: ${OPSDESK_DEEPSEEK_BASE_URL:https://api.deepseek.com}
+      model: ${OPSDESK_DEEPSEEK_MODEL:deepseek-chat}
+      credential-environment: ${OPSDESK_DEEPSEEK_CREDENTIAL_ENV:OPSDESK_DEEPSEEK_API_KEY}
+      timeout: ${OPSDESK_DEEPSEEK_TIMEOUT:10s}
+      max-tokens: ${OPSDESK_DEEPSEEK_MAX_TOKENS:160}
+      max-input-chars: ${OPSDESK_DEEPSEEK_MAX_INPUT_CHARS:8000}

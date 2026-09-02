@@ -1,103 +1,95 @@
 # Security Model
 
-OpsDesk intentionally includes a small number of security-sensitive product surfaces so they can be implemented and verified incrementally.
+This file records current invariants and controls. It does not claim production readiness or require every security technique for every change.
 
-This file defines current project invariants. It is not a requirement to run every security test on every change.
+## Assets and boundaries
 
-## Assets
+Protected assets include user password hashes, workspace membership/authority, tenant tickets, credential references and future resolved secrets, and audit records.
 
-Initial protected assets:
+Primary boundaries are workspace/tenant, workspace role, client/server, application/provider origin, AI read/product write authority, and secret/audit/log sinks.
 
-- user identity/session
-- workspace membership and role authority
-- ticket data
-- AI provider credentials
-- audit records
-- future AI action authority
-
-## Trust boundaries
-
-Important boundaries:
-
-- workspace / tenant
-- user role / authority
-- browser vs server
-- application vs external AI provider/origin
-- AI read capability vs AI write/action capability
-- application logs/audit vs secrets
-
-## Core invariants
+## Implemented controls
 
 ### SEC-OPS-001 — Tenant isolation
 
-A user must not read or mutate another workspace's protected data unless an explicit cross-workspace capability exists.
+- Workspace-owned entities carry explicit tenant IDs.
+- Authorization resolves active membership server-side.
+- Ticket and provider object queries include workspace ID and object ID.
+- Non-members and cross-tenant object probes return `404` to avoid confirming existence.
+- Composite database foreign keys prevent cross-workspace ticket participants/provider creators.
 
-Authorization must be enforced server-side, not only by UI filtering.
+Application authorization is still the primary control; PostgreSQL row-level security is not enabled.
 
 ### SEC-OPS-002 — Role authority
 
-Member, Manager, and Admin capabilities must remain distinct. A lower-privileged user must not gain a higher-privileged action by changing request parameters, object identifiers, routes, or client state.
+- Roles are workspace-local, never global Spring authorities.
+- Members can read/create tickets and use read-only MOCK AI.
+- Managers/admins can transition tickets and read provider/audit data.
+- Admins manage memberships and provider profiles.
+- Role-insufficient active members receive `403`.
+- A pessimistic membership lock prevents concurrent removal or demotion of the final active admin.
 
-### SEC-OPS-003 — Provider credential isolation
+### SEC-OPS-003 — Provider credential/origin isolation
 
-A credential associated with provider/trusted origin A must never be sent to an unauthorized provider/origin B.
+- Profiles bind a provider type, normalized HTTPS origin, model, and credential reference to one workspace.
+- References must use `env:NAME` or `secret://...`; raw credential input is rejected.
+- Responses omit the reference and return only `credentialConfigured`.
+- MOCK profiles require exactly `https://mock.invalid` after normalization.
+- DeepSeek profiles are imported only from a server-owned option. The browser never submits a key/reference and cannot choose its origin, model, or environment variable.
+- Live DeepSeek requires a dedicated nonblank environment credential and explicit feature flag. It uses one fixed endpoint, no redirects/retries/tools, bounded timeout/input/output, and Manager/Admin authority.
+- Ticket/provider lookup is tenant-scoped before AI use.
 
-Changing provider or base URL must not silently carry stale authority across the trust boundary.
+The live path resolves only the configured dedicated environment name at the narrow outbound-request boundary. `secret://` remains reference-only; there is no production secret-manager resolver. Persistent rate/budget, redirect/failure, and credential rotation controls remain future work.
 
 ### SEC-OPS-004 — Secret non-disclosure
 
-Provider credentials/session secrets must not appear in logs, audit event payloads, user-visible errors, browser-rendered configuration, or unrelated persistence.
+- There is no provider secret-value column and no arbitrary audit payload.
+- AI/provider responses do not expose credential references.
+- Tests use synthetic canaries rather than production secrets.
+
+Credential reference names can themselves carry operational information; clients should keep them non-sensitive. Log/error sink review is still required before a real provider.
 
 ### SEC-OPS-005 — AI authority separation
 
-AI ability to read/classify/summarize a ticket does not automatically grant authority to assign, modify, close, change roles, manage provider settings, or perform other privileged operations.
-
-Untrusted ticket content must not expand AI authority.
+- AI actions only classify or summarize.
+- Ticket content is treated as text, not instructions.
+- MOCK AI cannot modify a ticket, membership, role, or provider profile.
+- `ProviderExecutionPolicy` grants only `READ_ONLY_ANALYSIS`; sensitive capabilities require an explicit policy extension and are denied by default.
+- The opt-in external client has no tool/function capability and its output is treated as data: classification is allowlisted and summaries are length-limited.
 
 ### SEC-OPS-006 — Audit integrity
 
-Privileged product/security actions should produce useful audit events without copying protected secret values into the audit trail.
+- Records contain fixed action/actor/target/outcome fields without request text or secret payload.
+- Ticket, provider, and AI audit writes join their business transaction.
+- Workspace events are consumed before commit for atomic persistence.
+- Audit reads require Manager or Admin.
 
-## Planned validation slices
+There is no append-only external sink, signing, retention policy, or transactional outbox.
 
-### Slice A — Auth / workspace
+### Authentication
 
-Validate:
+- Browser authentication uses a server-side HTTP session backed by database identities.
+- Spring's BCrypt encoder handles password verification.
+- Login requires Cookie-to-Header CSRF, rotates the session ID, and stores an erased-credential principal.
+- Mutating browser requests require `XSRF-TOKEN` in the `X-XSRF-TOKEN` header; logout invalidates the session.
+- Ordinary API 401/403 responses are structured JSON with `Cache-Control: no-store`; only failed explicit Basic requests receive a Basic challenge.
+- Explicit Basic remains available for CLI compatibility and bypasses CSRF only when a Basic Authorization header is present.
+- The React client writes neither passwords nor identities to local/session storage and clears tenant-scoped query caches on logout.
+- Local bootstrap is disabled by default and requires `OPSDESK_BOOTSTRAP_PASSWORD` when enabled.
+- Health/info, fixed SPA assets, CSRF initialization, and login are public; other `/api/v1/**` endpoints require authentication.
 
-- authenticated vs unauthenticated access
-- same-workspace access
-- cross-workspace denial
-- role-specific operations
+The current session store is local to one application process. Production requires TLS, secure-cookie deployment configuration, an identity design such as OIDC/SSO, rate limiting, account lifecycle controls, session revocation, and a shared session strategy if horizontal scaling requires it.
 
-### Slice B — Provider credentials
+## Validation state
 
-Use synthetic credentials and fake/local endpoints to exercise:
+The Docker Maven clean test run passed `11/11` tests, including browser session/CSRF behavior, session fixation protection, credential erasure, Basic compatibility, unauthenticated access, tenant hiding, ticket role/workflow behavior, provider origin/reference validation, fail-closed live-import behavior, response sanitization, deterministic prompt-injection content handling, and audit redaction. The frontend passed lint, `6/6` tests, and a production build. A complete live browser flow passed against Docker Compose PostgreSQL 17; application logs contained none of the synthetic password, credential reference, injected ticket instructions, or runtime error markers. One explicitly authorized, low-cost direct DeepSeek classification also passed using a server-imported profile: the ticket remained `OPEN`, profile output omitted credential fields, and audit output omitted ticket text. This evidence is not equivalent to a production penetration test.
 
-- normal provider call
-- provider switch
-- custom base URL
-- stale persisted provider state
-- redirect/retry/fallback behavior when applicable
-- logs/errors/audit sinks
+Use synthetic secrets and local/test environments for adversarial work. Escalate verification when authority, credential handling, origins, data migration, or external actions change; do not run unrelated attack families by ritual.
 
-Do not use real API keys for adversarial tests.
+## Next security work
 
-### Slice C — AI action authority
-
-Start AI as read-only classify/summarize capability. Later, if write actions are added, test prompt injection/untrusted ticket text against permission and approval boundaries.
-
-## Verification depth
-
-Security depth should follow change impact.
-
-Examples:
-
-```text
-copy/style change                 -> no security work normally
-local ticket validation           -> focused relevant boundary check if needed
-tenant authorization change       -> focused/deep auth isolation evidence
-provider credential/baseURL       -> focused credential/origin evidence
-AI privileged-action introduction -> focused/deep prompt/tool authority evidence
-```
-
-A high-impact invariant failure blocks the affected feature regardless of unrelated passing tests.
+1. Membership/final-admin concurrency tests on PostgreSQL.
+2. Production OIDC/session threat model, TLS/secure-cookie deployment boundary, rate limiting, and revocation.
+3. Fake/local provider transport plus production secret resolver, origin-binding, and controlled live smoke tests.
+4. Persistent rate/concurrency/budget limits, redirect/failure, logs, errors, and credential rotation tests.
+5. Outbox/external audit design if audit durability becomes a requirement.

@@ -1,112 +1,114 @@
 # Roadmap
 
-OpsDesk should grow through small, meaningful product slices. Each slice should be understandable as normal product work while creating new engineering evidence for Agent Lore.
+OpsDesk grows through useful product slices. Each slice may generate Agent Lore evidence, but product clarity and current repository evidence outrank benchmark complexity.
 
 ## Phase 0 — Runnable foundation
 
-Goal: establish a minimal Spring Boot application and PostgreSQL development/test environment.
+**Status: implemented**
 
-Expected outcomes:
-
-- application boots locally
-- database migration path exists
-- baseline automated test runs
-- project structure reflects the modular-monolith direction
-
-Avoid product complexity in this phase.
+- Spring Boot application and health endpoint
+- Maven build and Java 21 runtime
+- PostgreSQL Compose service
+- Flyway migration path
+- migration-aware context test
 
 ## Phase 1 — Identity, workspace, ticket
 
-Goal: first usable enterprise vertical slice.
+**Status: implemented and integrated verification complete**
 
-Features:
-
-- authentication
-- workspace membership
-- Admin / Manager / Member roles
-- create/list/view ticket
+- database authentication through browser Session/CSRF plus explicit Basic CLI compatibility
+- local opt-in bootstrap with externally supplied password
+- workspace membership and `ADMIN / MANAGER / MEMBER`
+- tenant hiding and role guards
+- final active admin protection
+- ticket create/list/view
 - `OPEN -> IN_PROGRESS -> DONE`
 
-Validation focus:
+Remaining evidence:
 
-- tenant ownership
-- server-side authorization
-- local vs integration verification choices
-- project-context update after the vertical slice is stable
+- membership role/deactivation and final-admin concurrency
+- production authentication and provider-boundary evidence as those later slices are introduced
 
-## Phase 2 — AI provider configuration
+## Phase 2 — Provider boundary
 
-Goal: introduce the first deliberate external trust boundary.
+**Status: local MVP implemented; real-provider work deferred**
 
-Features:
+- tenant-owned provider profiles
+- validated HTTPS trusted origin
+- `env:NAME` and `secret://...` reference syntax
+- response sanitization to `credentialConfigured`
+- admin writes and manager/admin reads
 
-- provider profile
-- API credential input/storage strategy
-- trusted provider/base URL configuration
-- small test endpoint/action
+Next slice:
 
-Validation focus:
+- define a credential resolver interface backed first by synthetic/fake secrets
+- prove origin binding, redirects, retries, fallback, logging, and error sanitization
+- do not use a real production credential for adversarial validation
 
-- provider/origin credential isolation
-- custom base URL behavior
-- stale configuration
-- secret logs/errors/audit handling
-- targeted security verification without running unrelated attack families
+## Phase 3 — Read-only AI
 
-This is the first major Agent Lore security regression slice.
+**Status: deterministic MOCK MVP implemented**
 
-## Phase 3 — AI classify / summarize
+- classify and summarize a tenant-scoped ticket
+- deterministic result with no network dependency
+- structured audit action
+- no write authority derived from ticket text
 
-Goal: use configured AI provider against a ticket.
+Next slice:
 
-Features:
+- fake/local HTTP provider transport
+- explicit timeout and failure behavior
+- prompt/content adversarial cases without granting product write tools
 
-- classify ticket
-- summarize ticket
-- record safe audit metadata
+## Phase 4 — Interactive product MVP
 
-Validation focus:
+**Status: implemented and browser-verified**
 
-- read-only AI authority
-- provider failure paths
-- untrusted ticket content
-- no automatic privilege expansion
+- React 19 + TypeScript + Vite product shell
+- authenticated workspace selection and creation
+- operational overview, ticket queue/search/create/detail/status
+- member and workspace-role management
+- sanitized Provider configuration
+- deterministic AI classification and summarization
+- structured audit timeline
+- responsive layout, accessible interaction states, and application error fallback
+- one production-style Docker image serving SPA + API against PostgreSQL
 
-## Phase 4 — Bounded AI action
+Next interaction slices, driven by actual product needs:
 
-Goal: introduce a controlled write action only after read-only AI behavior is stable.
+- assignment, priority, comments, and richer ticket lifecycle
+- pagination/filter contracts and optimistic concurrency
+- notification/inbox model and SLA/escalation views
+- replace hash routing when public URL/deployment requirements justify an edge fallback
 
-Possible first action:
+## Phase 5 — Production hardening before a real provider
 
-- propose assignment or priority change
+Possible work, driven by deployment requirements:
 
-Prefer proposal/confirmation before direct privileged mutation initially.
+- move from local sessions to the production identity/session design (likely OIDC/SSO)
+- TLS/reverse proxy and secure operational configuration
+- account lifecycle and rate limiting
+- secret-manager integration and credential rotation
+- transactional outbox or external immutable audit sink
+- PostgreSQL-focused integration/concurrency evidence
+- observability, backup, restore, and deployment procedures
 
-Validation focus:
+## Phase 6 — Bounded AI action
 
-- prompt injection
-- role/permission enforcement
-- approval boundary
-- auditability
-- security-control mutation where it adds evidence
+Only after read-only behavior and real authentication/provider boundaries are stable:
 
-## Phase 5+ — Expansion only when useful
+- propose an assignment or priority change
+- require normal workspace authorization
+- prefer proposal/confirmation before direct mutation
+- test prompt injection against permission and approval boundaries
 
-Possible future product growth:
+## Later expansion
 
-- richer workflows / approvals
-- notifications
-- attachments
-- SLA/escalation
-- scheduling
-- webhooks
-- optimistic locking / concurrency cases
-- multi-step AI tools
-- separate frontend
-- Java/backend architecture evolution
-
-Add these because they improve the product or create a useful engineering test, not merely to increase complexity.
+- richer workflows and approvals
+- notifications, attachments, SLA/escalation, scheduling, and webhooks
+- richer interactive workflows only when they add product value
+- service decomposition only when modular-monolith evidence justifies it
 
 ## Evaluation principle
 
-Do not prescribe an expected agent topology for a phase. Observe whether Agent Lore and the current coding agent choose an efficient execution/verification shape and whether the delivered result is correct, secure, maintainable, and accepted.
+Do not prescribe an expected agent topology or verification tool for a phase. Use the smallest useful execution shape and the evidence appropriate to the current claim and risk. Parallel agents, E2E tests, Testcontainers, Compose, mutation, and adversarial checks remain available methods rather than mandatory rituals.
